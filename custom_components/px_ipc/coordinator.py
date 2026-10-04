@@ -96,7 +96,11 @@ class PxIpcCoordinator(DataUpdateCoordinator[PxIpcData]):
         #: name -> monotonic timestamp of the most recent trigger.
         self.event_times: dict[str, float] = {}
 
-        self._listeners: list[EventCallback] = []
+        # NOT ``self._listeners``: DataUpdateCoordinator owns that name and keeps
+        # a dict there, so overwriting it makes async_update_listeners() crash
+        # with "'list' object has no attribute 'values'" on the very first
+        # refresh. These are our own event subscribers, kept separate.
+        self._event_listeners: list[EventCallback] = []
         self._stream_task: asyncio.Task[None] | None = None
         self._stop = asyncio.Event()
         self._connected = False
@@ -148,12 +152,12 @@ class PxIpcCoordinator(DataUpdateCoordinator[PxIpcData]):
     @callback
     def async_add_event_listener(self, listener: EventCallback) -> Callable[[], None]:
         """Subscribe to decoded events; returns an unsubscribe callable."""
-        self._listeners.append(listener)
+        self._event_listeners.append(listener)
 
         @callback
         def _remove() -> None:
-            if listener in self._listeners:
-                self._listeners.remove(listener)
+            if listener in self._event_listeners:
+                self._event_listeners.remove(listener)
 
         return _remove
 
@@ -204,7 +208,7 @@ class PxIpcCoordinator(DataUpdateCoordinator[PxIpcData]):
                 self.event_times[name] = now
             self.last_event = name
             self.last_event_time = now
-            for listener in list(self._listeners):
+            for listener in list(self._event_listeners):
                 try:
                     listener(name, event.payload)
                 except Exception:  # pragma: no cover - a listener must not kill the stream

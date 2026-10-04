@@ -93,6 +93,37 @@ def datetime_string(when: datetime | None = None) -> str:
     return (when or datetime.now()).strftime("%Y-%m-%dT%H:%M:%S")
 
 
+def normalise_host(value: str) -> tuple[str, int | None]:
+    """Split a user-typed address into a bare host and an optional port.
+
+    People paste ``192.168.2.223:80`` or ``http://192.168.2.223/`` into a host
+    field, and the naive result is a URL like ``http://192.168.2.223:80:80``,
+    which fails as "cannot connect" and looks like a network fault. Accepting
+    the obvious forms is cheaper than explaining the mistake.
+
+    Returns ``(host, port_or_None)``. A port that is not a number is dropped
+    rather than raising, so the caller can fall back to its own default.
+    """
+    text = (value or "").strip()
+    for scheme in ("http://", "https://"):
+        if text.lower().startswith(scheme):
+            text = text[len(scheme):]
+            break
+    text = text.split("/", 1)[0]
+
+    if text.startswith("[") and "]" in text:  # bracketed IPv6 literal
+        host, _, rest = text[1:].partition("]")
+        port = rest[1:] if rest.startswith(":") else ""
+        return host, int(port) if port.isdigit() else None
+
+    if text.count(":") == 1:
+        host, _, port = text.partition(":")
+        if port.isdigit():
+            return host, int(port)
+
+    return text, None
+
+
 def build_login_digest(
     username: str, salt: str, challenge: str, password: str, when: datetime | None = None
 ) -> str:

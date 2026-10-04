@@ -25,9 +25,10 @@
       }
     },
     "error": {
-      "cannot_connect": "Could not reach the camera. Check the address and the port.",
+      "cannot_connect": "Could not reach the camera. Check the address (host only — put the port in the Port field) and that Home Assistant is on a network that can reach the camera. The exact reason is in Settings → Logs.",
       "invalid_auth": "The camera rejected the username or password.",
-      "unknown": "The camera answered in an unexpected way."
+      "invalid_host": "Enter the camera's address, for example 192.168.2.223.",
+      "unknown": "The camera answered in an unexpected way. The details are in Settings → Logs."
     },
     "abort": {
       "already_configured": "This camera is already set up.",

@@ -7,6 +7,12 @@ support.
 |---|---|---|
 | [PX IPC](custom_components/px_ipc) | HeroSpeed / Longse IP cameras (`KL8`, `NL4`, … platform) | working, verified on hardware |
 
+Icons and logos live in `custom_components/<domain>/brand/`, which is where Home
+Assistant serves custom-integration branding from. Both a light and a dark
+variant are shipped: the mark is orange and near-black, and its black half would
+disappear against Home Assistant's dark theme, so the dark variant swaps that
+near-black for white.
+
 ---
 
 ## PX IPC
@@ -60,6 +66,29 @@ Then: *Settings → Devices & Services → Add integration → PX IPC Camera*.
 
 The stream can be changed later in the integration's options without removing
 the device.
+
+### There is no automatic discovery — you must type the address
+
+This was tested against the hardware rather than assumed:
+
+| Mechanism | Result |
+|---|---|
+| SSDP / UPnP `M-SEARCH` (`ssdp:all`, `Basic:1`, `NetworkVideoTransmitter:1`, `MediaServer:1`, `upnp:rootdevice`) | no reply to any of them |
+| mDNS (`_http._tcp`, `_rtsp._tcp`, `_onvif._tcp`, `_services._dns-sd._udp`) | no reply to any of them |
+| ONVIF | every `/onvif/*` path answers 404, so Home Assistant's ONVIF discovery cannot see it |
+| DHCP | the camera ships with `enableDhcp: false` — it holds a static address, so it never makes a DHCP request Home Assistant could match on |
+
+The camera simply announces nothing. So a manual host entry is the supported
+path, and asking the user to type an IP is not laziness — there is nothing to
+discover from.
+
+To find the address the first time: check the DHCP/client list on your router, or
+use the vendor's search tool, or the `P2P` serial number the camera reports
+(`/api/network/p2p`) with the vendor app.
+
+**Tip:** give the camera a static lease in your router rather than changing its
+own network settings, otherwise a re-addressed camera means editing the
+integration.
 
 ### Example automation
 

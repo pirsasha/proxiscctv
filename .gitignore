@@ -7,8 +7,8 @@ __pycache__/
 venv/
 
 # Local development scratch
-.check_live.py
-.check_ws.py
+.check_*.py
+.make_*.py
 *.local.py
 
 # Editors / OS

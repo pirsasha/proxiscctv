@@ -15,7 +15,7 @@ from homeassistant.components.number import (
     NumberMode,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory, UnitOfRatio
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -29,6 +29,10 @@ _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_MIN = 0
 DEFAULT_MAX = 100
+
+#: Literal rather than ``UnitOfRatio.PERCENTAGE``: that enum member was renamed
+#: across Home Assistant releases, and a plain string is accepted everywhere.
+PERCENT = "%"
 
 
 async def async_setup_entry(
@@ -53,7 +57,7 @@ class PxIpcLightBrightness(CoordinatorEntity[PxIpcCoordinator], NumberEntity):
     entity_description = NumberEntityDescription(
         key="light_brightness",
         translation_key="light_brightness",
-        native_unit_of_measurement=UnitOfRatio.PERCENTAGE,
+        native_unit_of_measurement=PERCENT,
         mode=NumberMode.SLIDER,
     )
 

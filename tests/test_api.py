@@ -18,6 +18,7 @@ from custom_components.px_ipc.api import (
     build_login_digest,
     datetime_string,
     event_types_from_payload,
+    normalise_host,
     parse_packet,
     plates_from_payload,
 )
@@ -69,6 +70,36 @@ def test_login_digest_changes_with_every_input():
     for variant in variants:
         assert variant != baseline
     assert all(len(v) == 64 for v in variants)  # lowercase hex sha256
+
+
+# --------------------------------------------------------------------------- #
+# Address parsing
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("typed", "expected"),
+    [
+        ("192.168.2.223", ("192.168.2.223", None)),
+        (" 192.168.2.223 ", ("192.168.2.223", None)),
+        # The mistake that produces "cannot connect" for no visible reason:
+        # a port in the host field yields http://host:80:80 otherwise.
+        ("192.168.2.223:80", ("192.168.2.223", 80)),
+        ("192.168.2.223:8080", ("192.168.2.223", 8080)),
+        ("http://192.168.2.223", ("192.168.2.223", None)),
+        ("http://192.168.2.223:8080/", ("192.168.2.223", 8080)),
+        ("https://camera.local", ("camera.local", None)),
+        ("camera.local/path", ("camera.local", None)),
+        # A non-numeric suffix must not be mistaken for a port.
+        ("camera.local:http", ("camera.local:http", None)),
+        # Bare IPv6 stays intact; a bracketed literal is unpacked.
+        ("fe80::1", ("fe80::1", None)),
+        ("[fe80::1]:8080", ("fe80::1", 8080)),
+        ("", ("", None)),
+    ],
+)
+def test_normalise_host_accepts_what_people_actually_type(typed, expected):
+    assert normalise_host(typed) == expected
 
 
 # --------------------------------------------------------------------------- #

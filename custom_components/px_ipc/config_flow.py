@@ -26,7 +26,13 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .api import PxIpcAuthError, PxIpcClient, PxIpcConnectionError, PxIpcError
+from .api import (
+    PxIpcAuthError,
+    PxIpcClient,
+    PxIpcConnectionError,
+    PxIpcError,
+    normalise_host,
+)
 from .const import (
     CONF_STREAM,
     DEFAULT_PORT,
@@ -79,40 +85,52 @@ class PxIpcConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            host = user_input[CONF_HOST].strip()
-            port = int(user_input.get(CONF_PORT, DEFAULT_PORT))
+            host, typed_port = normalise_host(user_input[CONF_HOST])
+            port = typed_port or int(user_input.get(CONF_PORT, DEFAULT_PORT))
             username = user_input.get(CONF_USERNAME, DEFAULT_USERNAME).strip()
             password = user_input[CONF_PASSWORD]
 
-            try:
-                info = await _probe(self.hass, host, port, username, password)
-            except PxIpcAuthError:
-                errors["base"] = "invalid_auth"
-            except PxIpcConnectionError:
-                errors["base"] = "cannot_connect"
-            except PxIpcError as err:
-                _LOGGER.debug("probe failed: %s", err)
-                errors["base"] = "unknown"
-            except Exception:  # noqa: BLE001 - never let a flow die with a traceback
-                _LOGGER.exception("unexpected error probing %s", host)
-                errors["base"] = "unknown"
+            if not host:
+                # An empty field must not be reported as a network failure.
+                errors["base"] = "invalid_host"
             else:
-                # devId is the camera's stable serial; it survives re-addressing.
-                serial = str(info.get("devId") or host)
-                await self.async_set_unique_id(serial)
-                self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+                try:
+                    info = await _probe(self.hass, host, port, username, password)
+                except PxIpcAuthError as err:
+                    _LOGGER.warning("PX IPC: %s rejected the credentials (%s)", host, err)
+                    errors["base"] = "invalid_auth"
+                except PxIpcConnectionError as err:
+                    # Say exactly what failed, which host:port and why. Without
+                    # this the UI only shows "cannot connect", which is the same
+                    # message for a typo, a firewall and a wrong subnet.
+                    _LOGGER.warning(
+                        "PX IPC: cannot reach %s:%s (%s)", host, port, err
+                    )
+                    errors["base"] = "cannot_connect"
+                except PxIpcError as err:
+                    _LOGGER.warning("PX IPC: %s answered unexpectedly (%s)", host, err)
+                    errors["base"] = "unknown"
+                except Exception:  # noqa: BLE001 - never let a flow die with a traceback
+                    _LOGGER.exception("PX IPC: unexpected error probing %s", host)
+                    errors["base"] = "unknown"
+                else:
+                    # devId is the camera's stable serial; it survives
+                    # re-addressing, so a new IP does not create a duplicate.
+                    serial = str(info.get("devId") or host)
+                    await self.async_set_unique_id(serial)
+                    self._abort_if_unique_id_configured(updates={CONF_HOST: host})
 
-                title = str(info.get("devName") or "PX IPC")
-                return self.async_create_entry(
-                    title=f"{title} ({host})",
-                    data={
-                        CONF_HOST: host,
-                        CONF_PORT: port,
-                        CONF_USERNAME: username,
-                        CONF_PASSWORD: password,
-                        CONF_STREAM: user_input.get(CONF_STREAM, STREAM_MAIN),
-                    },
-                )
+                    title = str(info.get("devName") or "PX IPC")
+                    return self.async_create_entry(
+                        title=f"{title} ({host})",
+                        data={
+                            CONF_HOST: host,
+                            CONF_PORT: port,
+                            CONF_USERNAME: username,
+                            CONF_PASSWORD: password,
+                            CONF_STREAM: user_input.get(CONF_STREAM, STREAM_MAIN),
+                        },
+                    )
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_SCHEMA, errors=errors
