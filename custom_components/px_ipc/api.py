@@ -50,6 +50,7 @@ from .const import (
     JSON_CONTENT_TYPE,
     LOGIN_CAPABILITIES_PATH,
     LOGIN_PATH,
+    MOTION_PATH,
     PACKET_HEADER_SIZE,
     PACKET_SIGNATURE,
     SNAPSHOT_PATH,
@@ -388,34 +389,97 @@ class PxIpcClient:
     async def async_get_legacy_image_params(self) -> dict[str, Any]:
         return await self.async_call(IMAGE_LEGACY_PATH) or {}
 
-    async def async_set_wdr(self, level: int) -> None:
-        """Set WDR.
+    async def async_get_motion(self) -> dict[str, Any]:
+        return await self.async_call(MOTION_PATH) or {}
 
-        Only the legacy endpoint actually applies it: the modern one accepts the
-        value, answers ``code: 0`` and keeps the old setting. Verified on the
-        device, hence the full read-modify-write through the legacy path.
+    # -- writes --------------------------------------------------------- #
+    # The device replaces the whole object it is given, so every write is a
+    # read-modify-write. Sending a lone field wipes its neighbours.
+    async def async_patch_image_params(
+        self, updates: dict[str, dict[str, Any]]
+    ) -> None:
+        """Patch ``/api/image/image-param``; *updates* maps section -> fields."""
+        current = await self.async_get_image_params()
+        for section, fields in updates.items():
+            block = current.get(section)
+            if not isinstance(block, dict):
+                block = {}
+                current[section] = block
+            block.update(fields)
+        await self.async_call(IMAGE_PARAM_PATH, "set", current)
+
+    async def async_patch_legacy_params(self, fields: dict[str, Any]) -> None:
+        """Patch ``/api/image/image``.
+
+        Several image settings only take effect through this legacy endpoint:
+        brightness, contrast and saturation are silently dropped by the modern
+        one, and WDR is too. Verified on the device by write-then-read-back.
         """
         current = await self.async_get_legacy_image_params()
-        current["enableWideDynamic"] = 1 if level > 0 else 0
-        if level > 0:
-            current["wideDynamicLevel"] = level
+        current.update(fields)
         await self.async_call(IMAGE_LEGACY_PATH, "set", current)
 
+    async def async_set_wdr(self, level: int) -> None:
+        """Set WDR; only the legacy endpoint actually applies it."""
+        await self.async_patch_legacy_params(
+            {"enableWideDynamic": 1 if level > 0 else 0, "wideDynamicLevel": max(level, 1)}
+        )
+
     async def async_set_day_night(self, mode: int) -> None:
-        current = await self.async_get_image_params()
-        current.setdefault("dayNightMode", {})["dayNightMode"] = mode
-        await self.async_call(IMAGE_PARAM_PATH, "set", current)
+        await self.async_patch_image_params({"dayNightMode": {"dayNightMode": mode}})
 
     async def async_set_illuminator(self, mode: int) -> None:
-        current = await self.async_get_image_params()
-        current.setdefault("dayNightMode", {})["ledMode"] = mode
-        await self.async_call(IMAGE_PARAM_PATH, "set", current)
+        await self.async_patch_image_params({"dayNightMode": {"ledMode": mode}})
 
     async def async_set_light_brightness(self, value: int) -> None:
         """Illuminator output level, 0-100 on the models seen so far."""
-        current = await self.async_get_image_params()
-        current.setdefault("dayNightMode", {})["lightBrightness"] = int(value)
-        await self.async_call(IMAGE_PARAM_PATH, "set", current)
+        await self.async_patch_image_params(
+            {"dayNightMode": {"lightBrightness": int(value)}}
+        )
+
+    async def async_set_hlc(self, enabled: bool) -> None:
+        """High light compensation — the fix for blown-out plates at night."""
+        await self.async_patch_image_params(
+            {"backlight": {"enableStrongLightInhibition": bool(enabled)}}
+        )
+
+    async def async_set_hlc_strength(self, value: int) -> None:
+        await self.async_patch_image_params(
+            {"backlight": {"strongLightInhibitionStrength": int(value)}}
+        )
+
+    async def async_set_shutter(self, value: int) -> None:
+        """Exposure index 0-18; larger means a shorter exposure."""
+        await self.async_patch_image_params(
+            {"exposure": {"electronicShutte": int(value)}}
+        )
+
+    async def async_set_anti_flicker(self, level: int) -> None:
+        await self.async_patch_image_params(
+            {"exposure": {"antiFlickerLevel": int(level)}}
+        )
+
+    async def async_set_dnr(self, level: int) -> None:
+        await self.async_patch_image_params({"imageEnhance": {"dnrLevel": int(level)}})
+
+    async def async_set_legacy_brightness(self, value: int) -> None:
+        await self.async_patch_legacy_params({"brightness": int(value)})
+
+    async def async_set_legacy_contrast(self, value: int) -> None:
+        await self.async_patch_legacy_params({"contrast": int(value)})
+
+    async def async_set_legacy_saturation(self, value: int) -> None:
+        await self.async_patch_legacy_params({"saturation": int(value)})
+
+    async def async_set_motion_enabled(self, enabled: bool) -> None:
+        current = await self.async_call(MOTION_PATH) or {}
+        current["enable"] = bool(enabled)
+        await self.async_call(MOTION_PATH, "set", current)
+
+    async def async_set_motion_sensitivity(self, value: int) -> None:
+        current = await self.async_call(MOTION_PATH) or {}
+        current["sensitivity"] = int(value)
+        await self.async_call(MOTION_PATH, "set", current)
 
     async def async_heartbeat(self) -> None:
         """Keep the session alive; the SDK asks for this every 30s."""

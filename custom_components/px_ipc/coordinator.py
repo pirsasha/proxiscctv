@@ -46,23 +46,74 @@ class PxIpcData:
     device_info: dict[str, Any] = field(default_factory=dict)
     image_params: dict[str, Any] = field(default_factory=dict)
     legacy_params: dict[str, Any] = field(default_factory=dict)
+    motion: dict[str, Any] = field(default_factory=dict)
+
+    # -- nested lookups ------------------------------------------------- #
+    def _image(self, section: str, key: str) -> Any:
+        return (self.image_params.get(section) or {}).get(key)
+
+    def _number(self, value: Any) -> int | None:
+        return int(value) if isinstance(value, (int, float)) else None
 
     @property
     def day_night(self) -> int | None:
-        value = (self.image_params.get("dayNightMode") or {}).get("dayNightMode")
-        return int(value) if isinstance(value, int) else None
+        return self._number(self._image("dayNightMode", "dayNightMode"))
 
     @property
     def illuminator(self) -> int | None:
-        value = (self.image_params.get("dayNightMode") or {}).get("ledMode")
-        return int(value) if isinstance(value, int) else None
+        return self._number(self._image("dayNightMode", "ledMode"))
+
+    @property
+    def light_brightness(self) -> int | None:
+        return self._number(self._image("dayNightMode", "lightBrightness"))
 
     @property
     def wdr(self) -> int | None:
         if not self.legacy_params.get("enableWideDynamic"):
             return 0
-        value = self.legacy_params.get("wideDynamicLevel")
-        return int(value) if isinstance(value, int) else None
+        return self._number(self.legacy_params.get("wideDynamicLevel"))
+
+    @property
+    def hlc(self) -> bool | None:
+        value = self._image("backlight", "enableStrongLightInhibition")
+        return bool(value) if value is not None else None
+
+    @property
+    def hlc_strength(self) -> int | None:
+        return self._number(self._image("backlight", "strongLightInhibitionStrength"))
+
+    @property
+    def shutter(self) -> int | None:
+        return self._number(self._image("exposure", "electronicShutte"))
+
+    @property
+    def anti_flicker(self) -> int | None:
+        return self._number(self._image("exposure", "antiFlickerLevel"))
+
+    @property
+    def dnr(self) -> int | None:
+        return self._number(self._image("imageEnhance", "dnrLevel"))
+
+    @property
+    def brightness(self) -> int | None:
+        return self._number(self.legacy_params.get("brightness"))
+
+    @property
+    def contrast(self) -> int | None:
+        return self._number(self.legacy_params.get("contrast"))
+
+    @property
+    def saturation(self) -> int | None:
+        return self._number(self.legacy_params.get("saturation"))
+
+    @property
+    def motion_enabled(self) -> bool | None:
+        value = self.motion.get("enable")
+        return bool(value) if value is not None else None
+
+    @property
+    def motion_sensitivity(self) -> int | None:
+        return self._number(self.motion.get("sensitivity"))
 
 
 #: Called as ``listener(event_name, payload)`` for every decoded event.
@@ -109,14 +160,57 @@ class PxIpcCoordinator(DataUpdateCoordinator[PxIpcData]):
     # Polling
     # ------------------------------------------------------------------ #
     async def _async_update_data(self) -> PxIpcData:
+        """Refresh the three parameter blocks, tolerating a partial failure.
+
+        An embedded camera occasionally stalls for a second or two — a
+        concurrent writer (the vendor web UI, a script, another client) is
+        enough. Treating that as a hard failure flips *every* entity to
+        "unavailable" and then back, which reads as "the integration is flaky"
+        while the device is fine. So each block is fetched independently: one
+        that fails keeps its previous value, and only a total failure — which
+        really does mean the camera is gone — raises.
+        """
+        failures: list[str] = []
+        previous = self.data
+
+        device_info = await self._safe(self.client.async_get_device_info, failures)
+        image_params = await self._safe(self.client.async_get_image_params, failures)
+        legacy_params = await self._safe(
+            self.client.async_get_legacy_image_params, failures
+        )
+        motion = await self._safe(self.client.async_get_motion, failures)
+
+        if not any((device_info, image_params, legacy_params, motion)):
+            raise UpdateFailed("; ".join(failures) or "the camera did not answer")
+
+        if failures:
+            _LOGGER.debug("partial refresh, kept previous values: %s", failures)
+
+        def keep(new: dict[str, Any] | None, old: dict[str, Any] | None) -> dict[str, Any]:
+            if new is not None:
+                return new
+            return old or {}
+
+        return PxIpcData(
+            device_info=keep(device_info, previous.device_info if previous else {}),
+            image_params=keep(image_params, previous.image_params if previous else {}),
+            legacy_params=keep(
+                legacy_params, previous.legacy_params if previous else {}
+            ),
+            motion=keep(motion, previous.motion if previous else {}),
+        )
+
+    @staticmethod
+    async def _safe(call, failures: list[str]) -> dict[str, Any] | None:
+        """Await *call*, recording the reason instead of raising."""
         try:
-            return PxIpcData(
-                device_info=await self.client.async_get_device_info(),
-                image_params=await self.client.async_get_image_params(),
-                legacy_params=await self.client.async_get_legacy_image_params(),
-            )
+            return await call()
         except PxIpcError as err:
-            raise UpdateFailed(str(err)) from err
+            failures.append(str(err))
+            return None
+        except Exception as err:  # noqa: BLE001 - one bad block must not sink the poll
+            failures.append(f"{type(err).__name__}: {err}")
+            return None
 
     # ------------------------------------------------------------------ #
     # Event stream

@@ -117,10 +117,45 @@
           "medium": "Средний",
           "high": "Высокий"
         }
+      },
+      "anti_flicker": {
+        "name": "Анти-мерцание",
+        "state": {
+          "off": "Выключено",
+          "grade_1": "Ступень 1",
+          "grade_2": "Ступень 2",
+          "grade_3": "Ступень 3",
+          "grade_4": "Ступень 4",
+          "grade_5": "Ступень 5",
+          "grade_6": "Ступень 6",
+          "grade_7": "Ступень 7",
+          "grade_8": "Ступень 8",
+          "grade_9": "Ступень 9",
+          "grade_10": "Ступень 10"
+        }
+      },
+      "dnr": {
+        "name": "Шумоподавление",
+        "state": {
+          "off": "Выключено",
+          "low": "Низкое",
+          "medium": "Среднее",
+          "high": "Высокое"
+        }
       }
     },
+    "switch": {
+      "hlc": { "name": "Подавление ярких источников (HLC)" },
+      "motion_detection": { "name": "Детекция движения" }
+    },
     "number": {
-      "light_brightness": { "name": "Яркость подсветки" }
+      "light_brightness": { "name": "Яркость подсветки" },
+      "brightness": { "name": "Яркость" },
+      "contrast": { "name": "Контраст" },
+      "saturation": { "name": "Насыщенность" },
+      "hlc_strength": { "name": "Сила HLC" },
+      "shutter": { "name": "Выдержка" },
+      "motion_sensitivity": { "name": "Чувствительность движения" }
     }
   }
 }

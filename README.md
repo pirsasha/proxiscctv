@@ -39,13 +39,41 @@ camera has **no ONVIF**, so Home Assistant's ONVIF integration cannot be used.
 | `camera` | Live RTSP stream (main or sub) + still image from the API |
 | `binary_sensor` | 17 event sensors: motion, region intrusion, illegal parking, line crossing, region entry/exit, loitering, people gathering, face detection, video tampering, audio detection, **license plate**, scene change, abandoned object, object removed, alarm input, video loss |
 | `sensor` | **Last license plate**, last event, event-stream state, firmware, model, serial, platform |
-| `select` | Day/night mode, illuminator (warm light / infrared / intelligent), WDR level |
-| `number` | Illuminator brightness |
+| `select` | Day/night mode, illuminator, wide dynamic range, anti-flicker, noise reduction |
+| `switch` | High light compensation (HLC), motion detection |
+| `number` | Illuminator brightness, brightness, contrast, saturation, HLC strength, exposure (shutter), motion sensitivity |
 
 Event sensors are driven by the camera's **WebSocket event stream**, not by
 polling: the camera pushes a packet the moment it detects something. Each sensor
 latches for 30 seconds, and an explicit "cleared" packet switches it off
 immediately.
+
+Entities for settings the firmware does not report simply do not appear, so a
+different model shows a different (shorter) list rather than a row of dead
+controls.
+
+### Which settings actually save
+
+Every control above was verified by writing a different value and reading it back.
+That matters because this firmware answers `code: 0` to writes it silently
+discards — an entity for such a setting looks perfect and does nothing. The
+results:
+
+| Setting | Applied through |
+|---|---|
+| Exposure (shutter), anti-flicker, noise reduction | `/api/image/image-param` |
+| HLC on/off and its strength | `/api/image/image-param` |
+| Day/night mode, illuminator, illuminator brightness | `/api/image/image-param` |
+| **Brightness, contrast, saturation** | **`/api/image/image` (legacy only)** |
+| **Wide dynamic range** | **`/api/image/image` (legacy only)** |
+| Motion detection enable and sensitivity | `/api/event/motion` |
+
+The pattern is worth remembering: `/api/image/image-param` accepts brightness,
+contrast, saturation and WDR, answers success, and keeps the old value. Only the
+legacy endpoint applies them, which is why those setters go through it.
+
+Sharpness is deliberately absent: it is not writable through either endpoint on
+this firmware.
 
 ### Installation
 

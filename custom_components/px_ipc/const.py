@@ -21,6 +21,7 @@ PLATFORMS: Final = [
     Platform.BINARY_SENSOR,
     Platform.SENSOR,
     Platform.SELECT,
+    Platform.SWITCH,
     Platform.NUMBER,
 ]
 
@@ -121,6 +122,15 @@ ILLUMINATOR_MODES_REVERSE: Final = {v: k for k, v in ILLUMINATOR_MODES.items()}
 
 WDR_LEVELS: Final = {0: "off", 1: "low", 2: "medium", 3: "high"}
 WDR_LEVELS_REVERSE: Final = {v: k for k, v in WDR_LEVELS.items()}
+
+#: Noise reduction, same scale shape as WDR.
+DNR_LEVELS: Final = {0: "off", 1: "low", 2: "medium", 3: "high"}
+DNR_LEVELS_REVERSE: Final = {v: k for k, v in DNR_LEVELS.items()}
+
+#: Anti-flicker: off, then grades 1-10. Visible in the vendor UI as a bare
+#: list of grades, so the names here mirror it rather than inventing meaning.
+ANTI_FLICKER_LEVELS: Final = {0: "off", **{n: f"grade_{n}" for n in range(1, 11)}}
+ANTI_FLICKER_LEVELS_REVERSE: Final = {v: k for k, v in ANTI_FLICKER_LEVELS.items()}
 
 # --------------------------------------------------------------------------- #
 # Event WebSocket protocol (vendor SDK 7.14.10)

@@ -26,8 +26,12 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import PxIpcError
 from .const import (
+    ANTI_FLICKER_LEVELS,
+    ANTI_FLICKER_LEVELS_REVERSE,
     DAY_NIGHT_MODES,
     DAY_NIGHT_MODES_REVERSE,
+    DNR_LEVELS,
+    DNR_LEVELS_REVERSE,
     DOMAIN,
     ILLUMINATOR_MODES,
     ILLUMINATOR_MODES_REVERSE,
@@ -51,6 +55,8 @@ async def async_setup_entry(
             PxIpcDayNightSelect(coordinator, entry),
             PxIpcIlluminatorSelect(coordinator, entry),
             PxIpcWdrSelect(coordinator, entry),
+            PxIpcAntiFlickerSelect(coordinator, entry),
+            PxIpcDnrSelect(coordinator, entry),
         ]
     )
 
@@ -178,3 +184,61 @@ class PxIpcWdrSelect(PxIpcBaseSelect):
         if level is None:
             return
         await self._apply(self.coordinator.client.async_set_wdr(level))
+
+
+class PxIpcAntiFlickerSelect(PxIpcBaseSelect):
+    """Off, or one of the ten exposure bands the device exposes.
+
+    Relevant to plates because anti-flicker caps the exposure time; on a lit
+    street that is often the difference between a sharp plate and a smeared one.
+    """
+
+    def __init__(self, coordinator: PxIpcCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(
+            coordinator,
+            entry,
+            SelectEntityDescription(
+                key="anti_flicker",
+                translation_key="anti_flicker",
+                icon="mdi:sine-wave",
+                options=list(ANTI_FLICKER_LEVELS.values()),
+            ),
+        )
+
+    @property
+    def current_option(self) -> str | None:
+        value = self.coordinator.data.anti_flicker if self.coordinator.data else None
+        return ANTI_FLICKER_LEVELS.get(value) if value is not None else None
+
+    async def async_select_option(self, option: str) -> None:
+        level = ANTI_FLICKER_LEVELS_REVERSE.get(option)
+        if level is None:
+            return
+        await self._apply(self.coordinator.client.async_set_anti_flicker(level))
+
+
+class PxIpcDnrSelect(PxIpcBaseSelect):
+    """Digital noise reduction."""
+
+    def __init__(self, coordinator: PxIpcCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(
+            coordinator,
+            entry,
+            SelectEntityDescription(
+                key="dnr",
+                translation_key="dnr",
+                icon="mdi:image-filter-tilt-shift",
+                options=list(DNR_LEVELS.values()),
+            ),
+        )
+
+    @property
+    def current_option(self) -> str | None:
+        value = self.coordinator.data.dnr if self.coordinator.data else None
+        return DNR_LEVELS.get(value) if value is not None else None
+
+    async def async_select_option(self, option: str) -> None:
+        level = DNR_LEVELS_REVERSE.get(option)
+        if level is None:
+            return
+        await self._apply(self.coordinator.client.async_set_dnr(level))
