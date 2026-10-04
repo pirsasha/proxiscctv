@@ -1,0 +1,14 @@
+{
+  "domain": "px_ipc",
+  "name": "PX IPC Camera",
+  "codeowners": ["@pirsasha"],
+  "config_flow": true,
+  "documentation": "https://github.com/pirsasha/proxiscctv",
+  "issue_tracker": "https://github.com/pirsasha/proxiscctv/issues",
+  "dependencies": ["stream"],
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "quality_scale": "custom",
+  "requirements": [],
+  "version": "0.1.0"
+}

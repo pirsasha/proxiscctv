@@ -1,0 +1,10 @@
+# Home Assistant runs on Linux; keep line endings consistent regardless of
+# which OS the contributor is on.
+* text=auto eol=lf
+
+# Binary (none yet, kept explicit so a future asset is not mangled)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary

@@ -1,0 +1,125 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to the camera",
+        "description": "Enter the address and credentials of a PX IPC camera (HeroSpeed / Longse platform). The same account you use for the camera's web interface.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password",
+          "stream": "Stream for live view"
+        },
+        "data_description": {
+          "stream": "The main stream is full resolution; the sub stream uses far less bandwidth."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate",
+        "description": "The camera rejected the stored credentials. Enter them again.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the camera. Check the address and the port.",
+      "invalid_auth": "The camera rejected the username or password.",
+      "unknown": "The camera answered in an unexpected way."
+    },
+    "abort": {
+      "already_configured": "This camera is already set up.",
+      "reauth_successful": "Credentials updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "PX IPC options",
+        "data": {
+          "stream": "Stream for live view"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": { "name": "Motion" },
+      "intrusion": { "name": "Region intrusion" },
+      "illegal_parking": { "name": "Illegal parking" },
+      "line_crossing": { "name": "Line crossing" },
+      "region_entrance": { "name": "Region entry" },
+      "region_exiting": { "name": "Region exit" },
+      "loitering": { "name": "Loitering" },
+      "people_gathering": { "name": "People gathering" },
+      "face_detection": { "name": "Face detection" },
+      "video_tampering": { "name": "Video tampering" },
+      "audio_detection": { "name": "Audio detection" },
+      "license_plate": { "name": "License plate" },
+      "scene_change": { "name": "Scene change" },
+      "item_abandoned": { "name": "Abandoned object" },
+      "item_moved": { "name": "Object removed" },
+      "alarm_input": { "name": "Alarm input" },
+      "video_loss": { "name": "Video loss" }
+    },
+    "sensor": {
+      "last_plate": {
+        "name": "Last license plate",
+        "state_attributes": {
+          "last_plate_time": { "name": "Reported at" }
+        }
+      },
+      "last_event": {
+        "name": "Last event",
+        "state_attributes": {
+          "event_key": { "name": "Event key" },
+          "last_event_time": { "name": "Reported at" }
+        }
+      },
+      "event_stream": {
+        "name": "Event stream",
+        "state": {
+          "connected": "Connected",
+          "disconnected": "Disconnected"
+        }
+      },
+      "firmware": { "name": "Firmware" },
+      "model": { "name": "Model" },
+      "serial": { "name": "Serial number" },
+      "platform": { "name": "Platform" }
+    },
+    "select": {
+      "day_night_mode": {
+        "name": "Day/night mode",
+        "state": {
+          "auto": "Auto",
+          "color": "Color",
+          "black_and_white": "Black and white",
+          "schedule": "Schedule"
+        }
+      },
+      "illuminator": {
+        "name": "Illuminator",
+        "state": {
+          "warm_light": "Warm light",
+          "infrared": "Infrared",
+          "intelligent": "Intelligent"
+        }
+      },
+      "wdr": {
+        "name": "Wide dynamic range",
+        "state": {
+          "off": "Off",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High"
+        }
+      }
+    },
+    "number": {
+      "light_brightness": { "name": "Illuminator brightness" }
+    }
+  }
+}

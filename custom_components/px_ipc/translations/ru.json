@@ -1,0 +1,125 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Подключение к камере",
+        "description": "Укажите адрес и учётные данные камеры PX IPC (платформа HeroSpeed / Longse). Тот же аккаунт, что и для веб-интерфейса камеры.",
+        "data": {
+          "host": "Адрес",
+          "port": "Порт",
+          "username": "Имя пользователя",
+          "password": "Пароль",
+          "stream": "Поток для просмотра"
+        },
+        "data_description": {
+          "stream": "Основной поток — полное разрешение; дополнительный экономит трафик."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Повторная авторизация",
+        "description": "Камера отклонила сохранённые данные. Введите их заново.",
+        "data": {
+          "username": "Имя пользователя",
+          "password": "Пароль"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Камера недоступна. Проверьте адрес и порт.",
+      "invalid_auth": "Камера отклонила имя пользователя или пароль.",
+      "unknown": "Камера ответила неожиданным образом."
+    },
+    "abort": {
+      "already_configured": "Эта камера уже добавлена.",
+      "reauth_successful": "Данные обновлены."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки PX IPC",
+        "data": {
+          "stream": "Поток для просмотра"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "motion": { "name": "Движение" },
+      "intrusion": { "name": "Вторжение в зону" },
+      "illegal_parking": { "name": "Нарушение парковки" },
+      "line_crossing": { "name": "Пересечение линии" },
+      "region_entrance": { "name": "Вход в зону" },
+      "region_exiting": { "name": "Выход из зоны" },
+      "loitering": { "name": "Праздношатание" },
+      "people_gathering": { "name": "Скопление людей" },
+      "face_detection": { "name": "Обнаружение лиц" },
+      "video_tampering": { "name": "Попытка вскрытия" },
+      "audio_detection": { "name": "Звуковая тревога" },
+      "license_plate": { "name": "Номерной знак" },
+      "scene_change": { "name": "Смена сцены" },
+      "item_abandoned": { "name": "Оставленный предмет" },
+      "item_moved": { "name": "Перемещение предмета" },
+      "alarm_input": { "name": "Тревожный вход" },
+      "video_loss": { "name": "Потеря видео" }
+    },
+    "sensor": {
+      "last_plate": {
+        "name": "Последний номер",
+        "state_attributes": {
+          "last_plate_time": { "name": "Когда получен" }
+        }
+      },
+      "last_event": {
+        "name": "Последнее событие",
+        "state_attributes": {
+          "event_key": { "name": "Код события" },
+          "last_event_time": { "name": "Когда получено" }
+        }
+      },
+      "event_stream": {
+        "name": "Поток событий",
+        "state": {
+          "connected": "Подключён",
+          "disconnected": "Отключён"
+        }
+      },
+      "firmware": { "name": "Прошивка" },
+      "model": { "name": "Модель" },
+      "serial": { "name": "Серийный номер" },
+      "platform": { "name": "Платформа" }
+    },
+    "select": {
+      "day_night_mode": {
+        "name": "Режим день/ночь",
+        "state": {
+          "auto": "Авто",
+          "color": "Цветной",
+          "black_and_white": "Чёрно-белый",
+          "schedule": "По расписанию"
+        }
+      },
+      "illuminator": {
+        "name": "Подсветка",
+        "state": {
+          "warm_light": "Тёплый свет",
+          "infrared": "Инфракрасная",
+          "intelligent": "Интеллектуальная"
+        }
+      },
+      "wdr": {
+        "name": "Широкий динамический диапазон",
+        "state": {
+          "off": "Выключен",
+          "low": "Низкий",
+          "medium": "Средний",
+          "high": "Высокий"
+        }
+      }
+    },
+    "number": {
+      "light_brightness": { "name": "Яркость подсветки" }
+    }
+  }
+}

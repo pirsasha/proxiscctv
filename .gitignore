@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Local development scratch
+.check_live.py
+.check_ws.py
+*.local.py
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
