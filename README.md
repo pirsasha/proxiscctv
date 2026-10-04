@@ -39,9 +39,10 @@ camera has **no ONVIF**, so Home Assistant's ONVIF integration cannot be used.
 | `camera` | Live RTSP stream (main or sub) + still image from the API |
 | `binary_sensor` | 17 event sensors: motion, region intrusion, illegal parking, line crossing, region entry/exit, loitering, people gathering, face detection, video tampering, audio detection, **license plate**, scene change, abandoned object, object removed, alarm input, video loss |
 | `sensor` | **Last license plate**, last event, event-stream state, firmware, model, serial, platform |
-| `select` | Day/night mode, illuminator, wide dynamic range, anti-flicker, noise reduction |
-| `switch` | High light compensation (HLC), motion detection |
-| `number` | Illuminator brightness, brightness, contrast, saturation, HLC strength, exposure (shutter), motion sensitivity |
+| `select` | Day/night mode, illuminator, wide dynamic range, anti-flicker, noise reduction, mirror, rotation |
+| `switch` | High light compensation (HLC), motion detection, region of interest |
+| `number` | Illuminator brightness, brightness, contrast, saturation, HLC strength, exposure (shutter), motion sensitivity, main and sub stream bitrate |
+| `button` | Reboot camera |
 
 Event sensors are driven by the camera's **WebSocket event stream**, not by
 polling: the camera pushes a packet the moment it detects something. Each sensor
@@ -67,13 +68,28 @@ results:
 | **Brightness, contrast, saturation** | **`/api/image/image` (legacy only)** |
 | **Wide dynamic range** | **`/api/image/image` (legacy only)** |
 | Motion detection enable and sensitivity | `/api/event/motion` |
+| Mirror, rotation | `/api/image/osd` |
+| Region of interest | `/api/event/roi` |
+| Stream bitrate | `/api/video/video-encode` |
 
 The pattern is worth remembering: `/api/image/image-param` accepts brightness,
 contrast, saturation and WDR, answers success, and keeps the old value. Only the
 legacy endpoint applies them, which is why those setters go through it.
 
 Sharpness is deliberately absent: it is not writable through either endpoint on
-this firmware.
+this firmware, so a slider for it would do nothing.
+
+Privacy masking is absent too. Its endpoint answers success for a lone `enable`
+flag and keeps `false`, so an on/off switch would be a lie. Setting a mask needs
+the region geometry as well, which is not something a switch can express.
+
+### PTZ
+
+The camera reports a PTZ with zoom, pan and tilt, and the client can drive it
+(`async_ptz_command`). No PTZ entities ship yet, deliberately: exercising the
+commands physically moves the lens, and that is not something to do to a camera
+someone else has already aimed. Say the word and it can be added, tested against
+the hardware first.
 
 ### Installation
 

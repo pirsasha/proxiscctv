@@ -36,6 +36,10 @@ from .const import (
     ILLUMINATOR_MODES,
     ILLUMINATOR_MODES_REVERSE,
     MANUFACTURER,
+    MIRROR_MODES,
+    MIRROR_MODES_REVERSE,
+    ROTATE_ANGLES,
+    ROTATE_ANGLES_REVERSE,
     WDR_LEVELS,
     WDR_LEVELS_REVERSE,
 )
@@ -57,6 +61,8 @@ async def async_setup_entry(
             PxIpcWdrSelect(coordinator, entry),
             PxIpcAntiFlickerSelect(coordinator, entry),
             PxIpcDnrSelect(coordinator, entry),
+            PxIpcMirrorSelect(coordinator, entry),
+            PxIpcRotationSelect(coordinator, entry),
         ]
     )
 
@@ -242,3 +248,57 @@ class PxIpcDnrSelect(PxIpcBaseSelect):
         if level is None:
             return
         await self._apply(self.coordinator.client.async_set_dnr(level))
+
+
+class PxIpcMirrorSelect(PxIpcBaseSelect):
+    """Flip the picture when the camera is mounted upside down or sideways."""
+
+    def __init__(self, coordinator: PxIpcCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(
+            coordinator,
+            entry,
+            SelectEntityDescription(
+                key="mirror",
+                translation_key="mirror",
+                icon="mdi:flip-horizontal",
+                options=list(MIRROR_MODES.values()),
+            ),
+        )
+
+    @property
+    def current_option(self) -> str | None:
+        value = self.coordinator.data.mirror if self.coordinator.data else None
+        return MIRROR_MODES.get(value) if value is not None else None
+
+    async def async_select_option(self, option: str) -> None:
+        mode = MIRROR_MODES_REVERSE.get(option)
+        if mode is None:
+            return
+        await self._apply(self.coordinator.client.async_set_mirror(mode))
+
+
+class PxIpcRotationSelect(PxIpcBaseSelect):
+    """Rotate the picture. The device offers upright, 90 and 270."""
+
+    def __init__(self, coordinator: PxIpcCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(
+            coordinator,
+            entry,
+            SelectEntityDescription(
+                key="rotation",
+                translation_key="rotation",
+                icon="mdi:rotate-right",
+                options=list(ROTATE_ANGLES.values()),
+            ),
+        )
+
+    @property
+    def current_option(self) -> str | None:
+        value = self.coordinator.data.rotation if self.coordinator.data else None
+        return ROTATE_ANGLES.get(value) if value is not None else None
+
+    async def async_select_option(self, option: str) -> None:
+        angle = ROTATE_ANGLES_REVERSE.get(option)
+        if angle is None:
+            return
+        await self._apply(self.coordinator.client.async_set_rotation(angle))

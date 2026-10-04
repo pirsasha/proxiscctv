@@ -9,6 +9,7 @@ inside a service call. These tests resolve both names up front instead.
 from __future__ import annotations
 
 from custom_components.px_ipc.api import PxIpcClient
+from custom_components.px_ipc.button import BUTTONS
 from custom_components.px_ipc.coordinator import PxIpcData
 from custom_components.px_ipc.number import NUMBERS
 from custom_components.px_ipc.select import (
@@ -16,6 +17,8 @@ from custom_components.px_ipc.select import (
     PxIpcDayNightSelect,
     PxIpcDnrSelect,
     PxIpcIlluminatorSelect,
+    PxIpcMirrorSelect,
+    PxIpcRotationSelect,
     PxIpcWdrSelect,
 )
 from custom_components.px_ipc.switch import SWITCHES
@@ -44,6 +47,11 @@ def test_every_switch_description_resolves():
         )
 
 
+def test_buttons_are_declared():
+    assert BUTTONS, "the button platform would register nothing"
+    assert {d.key for d in BUTTONS} == {"reboot"}
+
+
 def test_entity_keys_are_unique_across_platforms():
     number_keys = {d.key for d in NUMBERS}
     switch_keys = {d.key for d in SWITCHES}
@@ -53,13 +61,15 @@ def test_entity_keys_are_unique_across_platforms():
         PxIpcWdrSelect,
         PxIpcAntiFlickerSelect,
         PxIpcDnrSelect,
+        PxIpcMirrorSelect,
+        PxIpcRotationSelect,
     )
     # Each select builds its description in __init__, so the keys live in the
     # source rather than in a table; check them for duplicates by hand.
     assert len(number_keys) == len(NUMBERS)
     assert len(switch_keys) == len(SWITCHES)
     assert number_keys.isdisjoint(switch_keys)
-    assert len(select_classes) == 5
+    assert len(select_classes) == 7
 
 
 def test_select_option_maps_round_trip():

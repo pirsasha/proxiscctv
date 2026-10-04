@@ -142,11 +142,32 @@
           "medium": "Medium",
           "high": "High"
         }
+      },
+      "mirror": {
+        "name": "Mirror",
+        "state": {
+          "off": "Off",
+          "horizontal": "Horizontal",
+          "vertical": "Vertical",
+          "horizontal_and_vertical": "Horizontal and vertical"
+        }
+      },
+      "rotation": {
+        "name": "Rotation",
+        "state": {
+          "none": "Upright",
+          "angle_90": "90°",
+          "angle_270": "270°"
+        }
       }
     },
     "switch": {
       "hlc": { "name": "High light compensation (HLC)" },
-      "motion_detection": { "name": "Motion detection" }
+      "motion_detection": { "name": "Motion detection" },
+      "roi": { "name": "Region of interest" }
+    },
+    "button": {
+      "reboot": { "name": "Reboot camera" }
     },
     "number": {
       "light_brightness": { "name": "Illuminator brightness" },
@@ -155,7 +176,9 @@
       "saturation": { "name": "Saturation" },
       "hlc_strength": { "name": "HLC strength" },
       "shutter": { "name": "Exposure (shutter)" },
-      "motion_sensitivity": { "name": "Motion sensitivity" }
+      "motion_sensitivity": { "name": "Motion sensitivity" },
+      "bitrate_main": { "name": "Main stream bitrate" },
+      "bitrate_sub": { "name": "Sub stream bitrate" }
     }
   }
 }

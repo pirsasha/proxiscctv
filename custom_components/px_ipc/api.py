@@ -51,10 +51,16 @@ from .const import (
     LOGIN_CAPABILITIES_PATH,
     LOGIN_PATH,
     MOTION_PATH,
+    OSD_PATH,
     PACKET_HEADER_SIZE,
     PACKET_SIGNATURE,
+    PTZ_CTRL_PATH,
+    PTZ_INFO_PATH,
+    REBOOT_PATH,
+    ROI_PATH,
     SNAPSHOT_PATH,
     SUBSCRIBED_PACKETS,
+    VIDEO_ENCODE_PATH,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -275,26 +281,56 @@ class PxIpcClient:
     async def _raw_post(
         self, path: str, action: str, data: Any, *, timeout: int = DEFAULT_TIMEOUT
     ) -> dict[str, Any]:
-        body = json.dumps({"action": action, "data": data})
-        try:
-            async with self._session.post(
-                f"{self.base_url}{path}",
-                data=body.encode("utf-8"),
-                headers=self._headers(),
-                timeout=aiohttp.ClientTimeout(total=timeout),
-            ) as response:
-                if response.status != 200:
-                    raise PxIpcResponseError(f"HTTP {response.status} for {path}")
-                text = await response.text()
-        except asyncio.TimeoutError as err:
-            raise PxIpcConnectionError(f"timeout calling {path}") from err
-        except aiohttp.ClientError as err:
-            raise PxIpcConnectionError(f"{type(err).__name__} calling {path}") from err
+        """POST one call, retrying once when a pooled connection turns out dead.
 
-        try:
-            return json.loads(text)
-        except ValueError as err:
-            raise PxIpcResponseError(f"{path} returned non-JSON") from err
+        The camera answers every response with ``Connection: close`` but its
+        keep-alive handling is inconsistent: it sometimes closes a connection
+        that ``aiohttp`` has already returned to its pool. The next request then
+        picks up that dead socket and dies with ``ServerDisconnectedError``,
+        which looks exactly like the camera being unreachable — it is not.
+
+        A single retry is enough: on the second attempt ``aiohttp`` cannot reuse
+        the dead connection and opens a fresh one.
+        """
+        body = json.dumps({"action": action, "data": data})
+        last: Exception | None = None
+
+        for attempt in (1, 2):
+            try:
+                async with self._session.post(
+                    f"{self.base_url}{path}",
+                    data=body.encode("utf-8"),
+                    headers=self._headers(),
+                    timeout=aiohttp.ClientTimeout(total=timeout),
+                ) as response:
+                    if response.status != 200:
+                        raise PxIpcResponseError(f"HTTP {response.status} for {path}")
+                    text = await response.text()
+            except (aiohttp.ServerDisconnectedError, aiohttp.ClientOSError) as err:
+                last = err
+                if attempt == 1:
+                    _LOGGER.debug(
+                        "%s: stale keep-alive connection to %s, retrying once",
+                        type(err).__name__,
+                        self._host,
+                    )
+                    continue
+                raise PxIpcConnectionError(
+                    f"{type(err).__name__} calling {path}"
+                ) from err
+            except asyncio.TimeoutError as err:
+                raise PxIpcConnectionError(f"timeout calling {path}") from err
+            except aiohttp.ClientError as err:
+                raise PxIpcConnectionError(
+                    f"{type(err).__name__} calling {path}"
+                ) from err
+            else:
+                try:
+                    return json.loads(text)
+                except ValueError as err:
+                    raise PxIpcResponseError(f"{path} returned non-JSON") from err
+
+        raise PxIpcConnectionError(f"unreachable: {last}")  # pragma: no cover
 
     async def async_login(self) -> None:
         """Authenticate and remember the session cookie."""
@@ -480,6 +516,66 @@ class PxIpcClient:
         current = await self.async_call(MOTION_PATH) or {}
         current["sensitivity"] = int(value)
         await self.async_call(MOTION_PATH, "set", current)
+
+    # -- OSD, ROI, streams, reboot -------------------------------------- #
+    async def async_patch_osd(self, fields: dict[str, Any]) -> None:
+        """Patch ``/api/image/osd`` — mirror, rotation, overlays."""
+        current = await self.async_call(OSD_PATH) or {}
+        current.update(fields)
+        await self.async_call(OSD_PATH, "set", current)
+
+    async def async_get_osd(self) -> dict[str, Any]:
+        return await self.async_call(OSD_PATH) or {}
+
+    async def async_set_mirror(self, mode: int) -> None:
+        await self.async_patch_osd({"mirrorMode": int(mode)})
+
+    async def async_set_rotation(self, angle: int) -> None:
+        await self.async_patch_osd({"rotateAngle": int(angle)})
+
+    async def async_get_roi(self) -> dict[str, Any]:
+        return await self.async_call(ROI_PATH) or {}
+
+    async def async_set_roi_enabled(self, enabled: bool) -> None:
+        """ROI raises the quality inside three regions.
+
+        The device keeps its own region geometry; a lone enable flag is enough,
+        which was verified by write-then-read-back.
+        """
+        current = await self.async_get_roi()
+        current["enable"] = bool(enabled)
+        await self.async_call(ROI_PATH, "set", current)
+
+    async def async_get_video_encode(self) -> dict[str, Any]:
+        return await self.async_call(VIDEO_ENCODE_PATH) or {}
+
+    async def async_set_stream_bitrate(self, stream: str, kbps: int) -> None:
+        """Set one stream's bitrate; the whole encoder block is rewritten."""
+        from .const import STREAM_ENCODE_INDEX
+
+        current = await self.async_get_video_encode()
+        streams = current.get("streamEncode") or []
+        index = STREAM_ENCODE_INDEX.get(stream, 0)
+        if index >= len(streams):
+            raise PxIpcResponseError(f"stream {stream!r} is not present")
+        streams[index]["bitRate"] = int(kbps)
+        await self.async_call(VIDEO_ENCODE_PATH, "set", current)
+
+    async def async_reboot(self) -> None:
+        """Restart the camera. The session dies with it and is re-established."""
+        await self.async_call(REBOOT_PATH, "set", None)
+
+    async def async_get_ptz_info(self) -> list[dict[str, Any]]:
+        data = await self.async_call(PTZ_INFO_PATH)
+        return data if isinstance(data, list) else []
+
+    async def async_ptz_command(self, command: str, **fields: Any) -> None:
+        """Send one PTZ command, e.g. ``async_ptz_command("zoomin")``.
+
+        The device takes a single-key control object, so the caller passes the
+        command name and any extra parameters it needs.
+        """
+        await self.async_call(PTZ_CTRL_PATH, "set", {command: fields or 1})
 
     async def async_heartbeat(self) -> None:
         """Keep the session alive; the SDK asks for this every 30s."""

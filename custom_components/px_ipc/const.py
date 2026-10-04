@@ -23,6 +23,7 @@ PLATFORMS: Final = [
     Platform.SELECT,
     Platform.SWITCH,
     Platform.NUMBER,
+    Platform.BUTTON,
 ]
 
 #: Event-driven binary sensors, keyed by the stable name event payloads are
@@ -87,6 +88,7 @@ HEARTBEAT_PATH: Final = "/api/session/heart-beat"
 DEVICE_INFO_PATH: Final = "/api/system/device-info"
 CAPABILITY_PATH: Final = "/api/system/capability"
 SNAPSHOT_PATH: Final = "/api/picture/snapshot"
+REBOOT_PATH: Final = "/api/system/reboot"
 
 #: Two image endpoints, two different variable sets. WDR only responds on the
 #: legacy one — the modern one accepts the write, answers code 0 and changes
@@ -101,6 +103,13 @@ ILLEGAL_PARKING_PATH: Final = "/api/event/illegal-parking"
 LICENSE_PLATE_PATH: Final = "/api/event/license-plate"
 
 ALARM_SERVER_PATH: Final = "/api/network/alarm-server"
+OSD_PATH: Final = "/api/image/osd"
+ROI_PATH: Final = "/api/event/roi"
+PRIVACY_MASK_PATH: Final = "/api/event/privacy-masking"
+VIDEO_ENCODE_PATH: Final = "/api/video/video-encode"
+PTZ_INFO_PATH: Final = "/api/image/ptz-info"
+PTZ_CTRL_PATH: Final = "/api/image/ptz-ctrl"
+ZOOM_FOCUS_PATH: Final = "/api/image/zoom-focus"
 
 #: Real-time event stream. The camera is an IPC, so ``channel`` is omitted.
 EVENTS_WS_PATH: Final = "/events"
@@ -131,6 +140,28 @@ DNR_LEVELS_REVERSE: Final = {v: k for k, v in DNR_LEVELS.items()}
 #: list of grades, so the names here mirror it rather than inventing meaning.
 ANTI_FLICKER_LEVELS: Final = {0: "off", **{n: f"grade_{n}" for n in range(1, 11)}}
 ANTI_FLICKER_LEVELS_REVERSE: Final = {v: k for k, v in ANTI_FLICKER_LEVELS.items()}
+
+#: Names come from the vendor's own string table:
+#: sensorLinear0 / horizontalMirror / verticalMirror / horizontalAndVerticalMirrorImage
+MIRROR_MODES: Final = {
+    0: "off",
+    1: "horizontal",
+    2: "vertical",
+    3: "horizontal_and_vertical",
+}
+MIRROR_MODES_REVERSE: Final = {v: k for k, v in MIRROR_MODES.items()}
+
+#: The device offers upright, 90 and 270 only — there is no 180 option.
+ROTATE_ANGLES: Final = {0: "none", 1: "angle_90", 2: "angle_270"}
+ROTATE_ANGLES_REVERSE: Final = {v: k for k, v in ROTATE_ANGLES.items()}
+
+#: Which encoder block each stream number targets.
+STREAM_ENCODE_INDEX: Final = {"main": 0, "sub": 1}
+
+#: Bitrate bounds per stream, in kbps. The device reports its own list through
+#: /api/video/video-encode-scope, but a slider needs a range up front and these
+#: cover every value that endpoint advertises on the models seen.
+BITRATE_BOUNDS: Final = {"main": (256, 16384), "sub": (64, 4096)}
 
 # --------------------------------------------------------------------------- #
 # Event WebSocket protocol (vendor SDK 7.14.10)

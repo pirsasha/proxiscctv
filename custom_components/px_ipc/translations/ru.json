@@ -142,11 +142,32 @@
           "medium": "Среднее",
           "high": "Высокое"
         }
+      },
+      "mirror": {
+        "name": "Отражение",
+        "state": {
+          "off": "Выключено",
+          "horizontal": "По горизонтали",
+          "vertical": "По вертикали",
+          "horizontal_and_vertical": "По горизонтали и вертикали"
+        }
+      },
+      "rotation": {
+        "name": "Поворот",
+        "state": {
+          "none": "Прямо",
+          "angle_90": "90°",
+          "angle_270": "270°"
+        }
       }
     },
     "switch": {
       "hlc": { "name": "Подавление ярких источников (HLC)" },
-      "motion_detection": { "name": "Детекция движения" }
+      "motion_detection": { "name": "Детекция движения" },
+      "roi": { "name": "Зона повышенного качества (ROI)" }
+    },
+    "button": {
+      "reboot": { "name": "Перезагрузить камеру" }
     },
     "number": {
       "light_brightness": { "name": "Яркость подсветки" },
@@ -155,7 +176,9 @@
       "saturation": { "name": "Насыщенность" },
       "hlc_strength": { "name": "Сила HLC" },
       "shutter": { "name": "Выдержка" },
-      "motion_sensitivity": { "name": "Чувствительность движения" }
+      "motion_sensitivity": { "name": "Чувствительность движения" },
+      "bitrate_main": { "name": "Битрейт основного потока" },
+      "bitrate_sub": { "name": "Битрейт дополнительного потока" }
     }
   }
 }

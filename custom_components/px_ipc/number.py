@@ -30,7 +30,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import PxIpcError
-from .const import DOMAIN, MANUFACTURER
+from .const import BITRATE_BOUNDS, DOMAIN, MANUFACTURER
 from .coordinator import PxIpcCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -129,9 +129,15 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: PxIpcCoordinator = entry.runtime_data
-    async_add_entities(
+    entities: list[NumberEntity] = [
         PxIpcNumberEntity(coordinator, entry, description) for description in NUMBERS
+    ]
+    # One bitrate per stream: the main stream is what the ANPR pipeline reads,
+    # the sub stream is what a dashboard previews.
+    entities.extend(
+        PxIpcBitrateNumber(coordinator, entry, stream) for stream in ("main", "sub")
     )
+    async_add_entities(entities)
 
 
 class PxIpcNumberEntity(CoordinatorEntity[PxIpcCoordinator], NumberEntity):
@@ -188,5 +194,67 @@ class PxIpcNumberEntity(CoordinatorEntity[PxIpcCoordinator], NumberEntity):
             await setter(int(value))
         except PxIpcError as err:
             _LOGGER.error("could not set %s: %s", self.entity_description.key, err)
+            return
+        await self.coordinator.async_request_refresh()
+
+
+class PxIpcBitrateNumber(CoordinatorEntity[PxIpcCoordinator], NumberEntity):
+    """Bitrate of one encoder stream, in kbps.
+
+    The main stream carries 4K and is what recognition reads, so its bitrate is
+    the single most useful quality lever on a slow uplink. The sub stream is what
+    a dashboard pulls.
+    """
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
+    _attr_native_step = 64
+
+    def __init__(
+        self, coordinator: PxIpcCoordinator, entry: ConfigEntry, stream: str
+    ) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._stream = stream
+        self._attr_translation_key = f"bitrate_{stream}"
+        self._attr_unique_id = (
+            f"{entry.unique_id or entry.entry_id}_bitrate_{stream}"
+        )
+        self._attr_native_unit_of_measurement = "kbps"
+        low, high = BITRATE_BOUNDS.get(stream, (64, 16384))
+        self._attr_native_min_value = low
+        self._attr_native_max_value = high
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        info = self.coordinator.data.device_info if self.coordinator.data else {}
+        return DeviceInfo(
+            identifiers={(DOMAIN, str(self._entry.unique_id or self._entry.entry_id))},
+            manufacturer=str(info.get("manufacturers") or MANUFACTURER),
+            model=str(info.get("platform") or "PX IPC"),
+            name=str(info.get("devName") or "PX IPC"),
+            sw_version=str(info.get("firmwareVersion") or ""),
+            configuration_url=f"http://{self._entry.data['host']}",
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        if not self.coordinator.data:
+            return None
+        value = self.coordinator.data.stream_bitrate(self._stream)
+        return float(value) if isinstance(value, (int, float)) else None
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.native_value is not None
+
+    async def async_set_native_value(self, value: float) -> None:
+        try:
+            await self.coordinator.client.async_set_stream_bitrate(
+                self._stream, int(value)
+            )
+        except PxIpcError as err:
+            _LOGGER.error("could not set %s bitrate: %s", self._stream, err)
             return
         await self.coordinator.async_request_refresh()

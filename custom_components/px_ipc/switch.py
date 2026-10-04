@@ -50,6 +50,13 @@ SWITCHES: tuple[PxIpcSwitch, ...] = (
         getter="motion_enabled",
         setter="async_set_motion_enabled",
     ),
+    PxIpcSwitch(
+        key="roi",
+        translation_key="roi",
+        icon="mdi:image-filter-center-focus",
+        getter="roi_enabled",
+        setter="async_set_roi_enabled",
+    ),
 )
 
 

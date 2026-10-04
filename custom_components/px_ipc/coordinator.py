@@ -47,6 +47,9 @@ class PxIpcData:
     image_params: dict[str, Any] = field(default_factory=dict)
     legacy_params: dict[str, Any] = field(default_factory=dict)
     motion: dict[str, Any] = field(default_factory=dict)
+    osd: dict[str, Any] = field(default_factory=dict)
+    roi: dict[str, Any] = field(default_factory=dict)
+    video_encode: dict[str, Any] = field(default_factory=dict)
 
     # -- nested lookups ------------------------------------------------- #
     def _image(self, section: str, key: str) -> Any:
@@ -115,6 +118,28 @@ class PxIpcData:
     def motion_sensitivity(self) -> int | None:
         return self._number(self.motion.get("sensitivity"))
 
+    @property
+    def mirror(self) -> int | None:
+        return self._number(self.osd.get("mirrorMode"))
+
+    @property
+    def rotation(self) -> int | None:
+        return self._number(self.osd.get("rotateAngle"))
+
+    @property
+    def roi_enabled(self) -> bool | None:
+        value = self.roi.get("enable")
+        return bool(value) if value is not None else None
+
+    def stream_bitrate(self, stream: str) -> int | None:
+        from .const import STREAM_ENCODE_INDEX
+
+        streams = self.video_encode.get("streamEncode") or []
+        index = STREAM_ENCODE_INDEX.get(stream, 0)
+        if index >= len(streams):
+            return None
+        return self._number(streams[index].get("bitRate"))
+
 
 #: Called as ``listener(event_name, payload)`` for every decoded event.
 EventCallback = Callable[[str, dict[str, Any]], None]
@@ -179,8 +204,11 @@ class PxIpcCoordinator(DataUpdateCoordinator[PxIpcData]):
             self.client.async_get_legacy_image_params, failures
         )
         motion = await self._safe(self.client.async_get_motion, failures)
+        osd = await self._safe(self.client.async_get_osd, failures)
+        roi = await self._safe(self.client.async_get_roi, failures)
+        video_encode = await self._safe(self.client.async_get_video_encode, failures)
 
-        if not any((device_info, image_params, legacy_params, motion)):
+        if not any((device_info, image_params, legacy_params, motion, osd, roi, video_encode)):
             raise UpdateFailed("; ".join(failures) or "the camera did not answer")
 
         if failures:
@@ -198,6 +226,11 @@ class PxIpcCoordinator(DataUpdateCoordinator[PxIpcData]):
                 legacy_params, previous.legacy_params if previous else {}
             ),
             motion=keep(motion, previous.motion if previous else {}),
+            osd=keep(osd, previous.osd if previous else {}),
+            roi=keep(roi, previous.roi if previous else {}),
+            video_encode=keep(
+                video_encode, previous.video_encode if previous else {}
+            ),
         )
 
     @staticmethod
