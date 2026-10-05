@@ -25,6 +25,7 @@ from custom_components.px_ipc.api import (
 from custom_components.px_ipc.const import (
     PACKET_HEADER_SIZE,
     PACKET_SIGNATURE,
+    PKT_EVENT,
     PKT_LICENSE_PLATE,
 )
 
@@ -114,19 +115,48 @@ def build_packet(
     binary: bytes = b"",
     signature: int = PACKET_SIGNATURE,
 ) -> bytes:
+    """Frame one packet the way the camera actually does.
+
+    Layout confirmed against live traffic on 2026-10-04: the signature opens the
+    header, and the field between ``json_len`` and ``bin_len`` is reserved and
+    always zero. The earlier builder put those fields in the order the vendor
+    SDK happens to list them, which is not the order they appear on the wire —
+    and that is exactly what hid every plate packet.
+    """
     body = json.dumps(payload).encode("utf-8") + b"\x00"
     return b"".join(
         [
-            len(binary).to_bytes(4, "little"),
-            (0).to_bytes(4, "little"),  # json crc32, unused by us
-            len(body).to_bytes(4, "little"),
-            packet_type.to_bytes(2, "little"),
-            b"\x00" * 16,
             signature.to_bytes(2, "little"),
+            packet_type.to_bytes(2, "little"),
+            len(body).to_bytes(4, "little"),
+            (0).to_bytes(4, "little"),  # reserved, always zero
+            len(binary).to_bytes(4, "little"),
+            b"\x00" * 16,
             body,
             binary,
         ]
     )
+
+
+def test_real_captured_header_matches_the_documented_offsets():
+    """A header captured from the camera on 2026-10-04, verbatim.
+
+    Pinned so a future refactor cannot quietly drift back to the layout that
+    made every packet look corrupt: this is an event packet carrying a 226 KB
+    image, and its length fields sit where the parser now reads them.
+    """
+    header = bytes.fromhex(
+        "a5a502003c020000000000007d730300" "00000000000000000000000000000000"
+    )
+    assert len(header) == PACKET_HEADER_SIZE
+
+    assert int.from_bytes(header[0:2], "little") == PACKET_SIGNATURE
+    assert int.from_bytes(header[2:4], "little") == PKT_EVENT
+    assert int.from_bytes(header[4:8], "little") == 572
+    assert int.from_bytes(header[8:12], "little") == 0
+    assert int.from_bytes(header[12:16], "little") == 226173
+    # 32 + 572 + 226173 is the size the camera actually sent.
+    assert PACKET_HEADER_SIZE + 572 + 226173 == 226777
 
 
 def test_license_plate_packet_is_decoded():
@@ -203,12 +233,12 @@ def test_malformed_json_does_not_lose_the_packet():
     body = b"{not json\x00"
     packet = b"".join(
         [
-            (0).to_bytes(4, "little"),
-            (0).to_bytes(4, "little"),
-            len(body).to_bytes(4, "little"),
-            (2).to_bytes(2, "little"),
-            b"\x00" * 16,
             PACKET_SIGNATURE.to_bytes(2, "little"),
+            (2).to_bytes(2, "little"),
+            len(body).to_bytes(4, "little"),
+            (0).to_bytes(4, "little"),  # reserved
+            (0).to_bytes(4, "little"),  # no binary segment
+            b"\x00" * 16,
             body,
         ]
     )

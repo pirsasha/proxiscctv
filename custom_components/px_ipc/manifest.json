@@ -10,5 +10,5 @@
   "iot_class": "local_polling",
   "quality_scale": "custom",
   "requirements": [],
-  "version": "0.3.0"
+  "version": "0.3.1"
 }

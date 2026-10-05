@@ -53,6 +53,7 @@ from .const import (
     MOTION_PATH,
     OSD_PATH,
     PACKET_HEADER_SIZE,
+    PACKET_MAGIC,
     PACKET_SIGNATURE,
     PTZ_CTRL_PATH,
     PTZ_INFO_PATH,
@@ -153,14 +154,30 @@ def parse_packet(buffer: bytes) -> tuple[int, dict[str, Any], bytes, int] | None
     Returns ``(packet_type, json_payload, binary_segment, consumed)`` or ``None``
     when *buffer* does not yet hold a complete packet. An unknown packet type is
     still returned — the SDK requires clients to tolerate newer types.
+
+    The 32-byte header is laid out like this, confirmed against live traffic on
+    2026-10-04::
+
+        magic    u16 LE   0xa5a5
+        type     u16 LE
+        json_len u32 LE
+        reserved u32 LE   always zero
+        bin_len  u32 LE
+        padding  16 bytes
+
+    Reading ``bin_len`` from the first four bytes — as this function originally
+    did — turns the magic and type into a length, takes ``json_len`` from a field
+    that is always zero, and looks for the signature at the tail, where the
+    camera also writes zero. No packet ever matched, so every plate the camera
+    announced was discarded before anything could read it.
     """
     if len(buffer) < PACKET_HEADER_SIZE:
         return None
 
-    binary_len = int.from_bytes(buffer[0:4], "little")
-    json_len = int.from_bytes(buffer[8:12], "little")
-    packet_type = int.from_bytes(buffer[12:14], "little")
-    signature = int.from_bytes(buffer[30:32], "little")
+    signature = int.from_bytes(buffer[0:2], "little")
+    packet_type = int.from_bytes(buffer[2:4], "little")
+    json_len = int.from_bytes(buffer[4:8], "little")
+    binary_len = int.from_bytes(buffer[12:16], "little")
 
     total = PACKET_HEADER_SIZE + json_len + binary_len
     if len(buffer) < total:
@@ -640,6 +657,13 @@ class PxIpcClient:
                             continue
 
                         while True:
+                            # Resynchronise on the signature. Without this a
+                            # single stray byte stalls the buffer for good:
+                            # parse_packet keeps asking for more data that will
+                            # never align, and the plate is lost in silence.
+                            if len(buffer) >= 2 and buffer[0:2] != PACKET_MAGIC:
+                                buffer = buffer[1:]
+                                continue
                             parsed = parse_packet(buffer)
                             if parsed is None:
                                 break

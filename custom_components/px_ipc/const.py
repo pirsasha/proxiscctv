@@ -167,9 +167,14 @@ BITRATE_BOUNDS: Final = {"main": (256, 16384), "sub": (64, 4096)}
 # Event WebSocket protocol (vendor SDK 7.14.10)
 # --------------------------------------------------------------------------- #
 
-#: 32-byte global header, little-endian, signature 0xa5a5 at offset 30.
+#: 32-byte global header, little-endian. The signature is the FIRST two bytes,
+#: not the last — reading it from offset 30 is what made every packet look
+#: corrupt. Layout: magic u16, type u16, json_len u32, reserved u32,
+#: bin_len u32, 16 bytes of padding.
 PACKET_HEADER_SIZE: Final = 32
 PACKET_SIGNATURE: Final = 0xA5A5
+#: The same signature on the wire, for resynchronising a misaligned buffer.
+PACKET_MAGIC: Final = b"\xa5\xa5"
 
 PKT_HEARTBEAT: Final = 1
 PKT_EVENT: Final = 2
